@@ -75,32 +75,64 @@ def parse_blast_results(blast_xml):
 
 def create_visualization(results):
     print("\nCreating BLAST visualization...")
-    organisms = [r["organism"][:30] for r in results]
+
+    organisms = [r["organism"][:35] for r in results]
     identities = [r["identity"] for r in results]
     evalues = [r["evalue"] for r in results]
-    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 10))
-    fig.suptitle("Human Insulin Gene - BLAST Analysis Results",
-                 fontsize=14, fontweight="bold")
-    colors = ["#2ecc71" if i >= 90 else "#f39c12" if i >= 70 else "#e74c3c"
+
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(18, max(6, len(results) * 0.5 + 2)))
+    fig.suptitle("Human Insulin Gene — BLAST Analysis Results",
+                 fontsize=15, fontweight="bold", y=1.01)
+
+    # ── Chart 1: Identity % (horizontal bar) ──────────────────────
+    colors = ["#27ae60" if i >= 90 else "#e67e22" if i >= 70 else "#c0392b"
               for i in identities]
-    bars = ax1.barh(organisms, identities, color=colors)
-    ax1.set_xlabel("Identity %")
-    ax1.set_title("Sequence Identity % Across Species")
-    ax1.set_xlim(0, 100)
-    ax1.axvline(x=90, color="green", linestyle="--", alpha=0.5, label="90% threshold")
-    ax1.axvline(x=70, color="orange", linestyle="--", alpha=0.5, label="70% threshold")
-    ax1.legend()
+
+    bars = ax1.barh(range(len(organisms)), identities, color=colors,
+                    height=0.6, edgecolor="white", linewidth=0.5)
+
+    ax1.set_yticks(range(len(organisms)))
+    ax1.set_yticklabels(organisms, fontsize=8)
+    ax1.set_xlabel("Identity (%)", fontsize=10)
+    ax1.set_title("Sequence Identity Across Species", fontsize=11, fontweight="bold", pad=10)
+    ax1.set_xlim(0, 108)
+    ax1.axvline(x=90, color="#27ae60", linestyle="--", alpha=0.6, linewidth=1)
+    ax1.axvline(x=70, color="#e67e22", linestyle="--", alpha=0.6, linewidth=1)
+    ax1.invert_yaxis()
+    ax1.spines[["top", "right"]].set_visible(False)
+
     for bar, val in zip(bars, identities):
-        ax1.text(val + 0.5, bar.get_y() + bar.get_height()/2,
-                f"{val}%", va="center", fontsize=9)
+        ax1.text(val + 0.8, bar.get_y() + bar.get_height() / 2,
+                 f"{val}%", va="center", ha="left", fontsize=7.5, fontweight="bold")
+
+    legend_elements = [
+        Patch(facecolor="#27ae60", label="≥90% — Highly similar"),
+        Patch(facecolor="#e67e22", label="70–89% — Moderate"),
+        Patch(facecolor="#c0392b", label="<70% — Distantly related"),
+    ]
+    ax1.legend(handles=legend_elements, loc="lower right", fontsize=8, framealpha=0.8)
+
+    # ── Chart 2: E-values (horizontal bar, log scale) ─────────────
     evalues_fixed = [max(e, 1e-200) for e in evalues]
-    ax2.bar(range(len(organisms)), evalues_fixed, color="#3498db")
-    ax2.set_xticks(range(len(organisms)))
-    ax2.set_xticklabels(organisms, rotation=45, ha="right", fontsize=8)
-    ax2.set_ylabel("E-value (log scale)")
-    ax2.set_title("E-values for Each Match (lower = better)")
-    ax2.set_yscale("log")
-    ax2.set_ylim(1e-200, 1)
+
+    ax2.barh(range(len(organisms)), evalues_fixed,
+             color="#2980b9", height=0.6, edgecolor="white", linewidth=0.5)
+
+    ax2.set_yticks(range(len(organisms)))
+    ax2.set_yticklabels(organisms, fontsize=8)
+    ax2.set_xlabel("E-value (log scale — lower is better)", fontsize=10)
+    ax2.set_title("E-values for Each BLAST Match", fontsize=11, fontweight="bold", pad=10)
+    ax2.set_xscale("log")
+    ax2.set_xlim(1e-200, 10)
+    ax2.invert_yaxis()
+    ax2.spines[["top", "right"]].set_visible(False)
+
+    for i, (val, e) in enumerate(zip(range(len(organisms)), evalues_fixed)):
+        label = f"{val:.0e}" if val > 0 else "0"
+        ax2.text(evalues_fixed[i] * 2, i,
+                 f"{evalues_fixed[i]:.0e}", va="center", ha="left",
+                 fontsize=7, color="#1a1a1a")
+
     plt.tight_layout()
     chart_path = f"{RESULTS_DIR}/identity_chart.png"
     plt.savefig(chart_path, dpi=150, bbox_inches="tight")
